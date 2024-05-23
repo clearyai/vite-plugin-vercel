@@ -36,7 +36,7 @@
     "typescript": "^5.4.5",
     "vike": "^0.4.171",
     "vite": "^5.2.11",
-    "vite-plugin-vercel": "workspace:*"
+    "@clearyai/vite-plugin-vercel": "workspace:*"
   },
   "dependencies": {
     "@brillout/libassert": "^0.5.8",
@@ -45,7 +45,7 @@
   "peerDependencies": {
     "vike": "^0.4.171",
     "vite": "^4.4 || ^5.0.2",
-    "vite-plugin-vercel": "*"
+    "@clearyai/vite-plugin-vercel": "*"
   },
   "license": "MIT"
 }

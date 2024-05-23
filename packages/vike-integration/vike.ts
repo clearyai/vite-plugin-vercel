@@ -9,7 +9,7 @@ import type {
   ViteVercelApiEntry,
   ViteVercelPrerenderFn,
   ViteVercelPrerenderRoute,
-} from 'vite-plugin-vercel';
+} from '@clearyai/vite-plugin-vercel';
 import 'vike/__internal/setup';
 import {
   getPagesAndRoutes,
