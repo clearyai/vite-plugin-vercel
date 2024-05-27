@@ -1,6 +1,6 @@
 {
   "name": "@clearyai/vite-plugin-vercel",
-  "version": "6.2.0-dev.2",
+  "version": "6.2.0-dev.3",
   "type": "module",
   "files": [
     "dist",
