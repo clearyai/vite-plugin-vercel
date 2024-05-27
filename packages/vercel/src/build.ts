@@ -1,7 +1,7 @@
 import { ResolvedConfig } from 'vite';
 import glob from 'fast-glob';
 import path, { basename } from 'path';
-import { getOutput, getRoot, pathRelativeTo } from './utils';
+import { getOutput, getRoot } from './utils';
 import { build, BuildOptions, type Plugin } from 'esbuild';
 import { VercelOutputIsr, ViteVercelApiEntry } from './types';
 import { assert } from './assert';
@@ -12,7 +12,7 @@ import { getNodeVersion } from '@vercel/build-utils';
 import { nodeFileTrace } from '@vercel/nft';
 import { findRoot } from '@manypkg/find-root';
 
-export function getAdditionalEndpoints(resolvedConfig: ResolvedConfig) {
+export function getEndpoints(resolvedConfig: ResolvedConfig) {
   return (resolvedConfig.vercel?.additionalEndpoints ?? []).map((e) => ({
     ...e,
     addRoute: e.addRoute ?? true,
@@ -37,27 +37,7 @@ export function getEntries(
     );
   }
 
-  const otherApiEntries = glob
-    .sync(`${getRoot(resolvedConfig)}/_api/**/*.*([a-zA-Z0-9])`)
-    // from Vercel doc: Files with the underscore prefix are not turned into Serverless Functions.
-    .filter((filepath) => !path.basename(filepath).startsWith('_'));
-
-  return [...apiEntries, ...otherApiEntries].reduce((entryPoints, filePath) => {
-    const outFilePath = pathRelativeTo(
-      filePath,
-      resolvedConfig,
-      filePath.includes('/_api/') ? '_api' : 'api',
-    );
-    const parsed = path.posix.parse(outFilePath);
-
-    entryPoints.push({
-      source: filePath,
-      destination: `api/${path.posix.join(parsed.dir, parsed.name)}.func`,
-      addRoute: true,
-    });
-
-    return entryPoints;
-  }, getAdditionalEndpoints(resolvedConfig));
+  return getEndpoints(resolvedConfig);
 }
 
 const edgeWasmPlugin: Plugin = {
@@ -92,7 +72,7 @@ const vercelOgPlugin = (ctx: { found: boolean; index: string }): Plugin => {
 const standardBuildOptions: BuildOptions = {
   bundle: true,
   target: 'es2022',
-  format: 'cjs',
+  format: 'esm',
   platform: 'node',
   logLevel: 'info',
   logOverride: {
