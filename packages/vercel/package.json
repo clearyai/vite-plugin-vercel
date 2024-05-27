@@ -1,6 +1,6 @@
 {
   "name": "@clearyai/vite-plugin-vercel",
-  "version": "6.1.0",
+  "version": "6.2.0-dev.4",
   "type": "module",
   "files": [
     "dist",
@@ -27,8 +27,6 @@
     "lint:ts": "eslint . --max-warnings 0 --ignore-pattern dist"
   },
   "peerDependencies": {
-    "@vite-plugin-vercel/vike": "workspace:*",
-    "vike": "*",
     "vite": "^4.4 || ^5.0.2"
   },
   "peerDependenciesMeta": {
@@ -43,11 +41,9 @@
     "@types/node": "^18.19.31",
     "@typescript-eslint/eslint-plugin": "^7.9.0",
     "@typescript-eslint/parser": "^7.9.0",
-    "@vite-plugin-vercel/vike": "workspace:*",
     "eslint": "^8.57.0",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
-    "vike": "^0.4.171",
     "vite": "^5.2.11"
   },
   "dependencies": {

@@ -1,21 +1,18 @@
 import { ResolvedConfig } from 'vite';
 import glob from 'fast-glob';
-import path, { basename, dirname } from 'path';
-import { getOutput, getRoot, pathRelativeTo } from './utils';
+import path, { basename } from 'path';
+import { getOutput, getRoot } from './utils';
 import { build, BuildOptions, type Plugin } from 'esbuild';
 import { VercelOutputIsr, ViteVercelApiEntry } from './types';
 import { assert } from './assert';
 import { vercelOutputVcConfigSchema } from './schemas/config/vc-config';
 import fs, { copyFile } from 'fs/promises';
 import type { Header, Rewrite } from '@vercel/routing-utils';
-import _eval from 'eval';
-import { vercelEndpointExports } from './schemas/exports';
-import { generateCode, loadFile } from 'magicast';
 import { getNodeVersion } from '@vercel/build-utils';
 import { nodeFileTrace } from '@vercel/nft';
 import { findRoot } from '@manypkg/find-root';
 
-export function getAdditionalEndpoints(resolvedConfig: ResolvedConfig) {
+export function getEndpoints(resolvedConfig: ResolvedConfig) {
   return (resolvedConfig.vercel?.additionalEndpoints ?? []).map((e) => ({
     ...e,
     addRoute: e.addRoute ?? true,
@@ -40,27 +37,7 @@ export function getEntries(
     );
   }
 
-  const otherApiEntries = glob
-    .sync(`${getRoot(resolvedConfig)}/_api/**/*.*([a-zA-Z0-9])`)
-    // from Vercel doc: Files with the underscore prefix are not turned into Serverless Functions.
-    .filter((filepath) => !path.basename(filepath).startsWith('_'));
-
-  return [...apiEntries, ...otherApiEntries].reduce((entryPoints, filePath) => {
-    const outFilePath = pathRelativeTo(
-      filePath,
-      resolvedConfig,
-      filePath.includes('/_api/') ? '_api' : 'api',
-    );
-    const parsed = path.posix.parse(outFilePath);
-
-    entryPoints.push({
-      source: filePath,
-      destination: `api/${path.posix.join(parsed.dir, parsed.name)}.func`,
-      addRoute: true,
-    });
-
-    return entryPoints;
-  }, getAdditionalEndpoints(resolvedConfig));
+  return getEndpoints(resolvedConfig);
 }
 
 const edgeWasmPlugin: Plugin = {
@@ -299,61 +276,6 @@ function replaceBrackets(source: string) {
     .join('/');
 }
 
-async function removeDefaultExport(filepath: string) {
-  const mod = await loadFile(filepath);
-  try {
-    delete mod.exports.default;
-  } catch (_) {
-    // ignore
-  }
-
-  return generateCode(mod).code;
-}
-
-async function extractExports(filepath: string) {
-  try {
-    // default export is removed so that generated bundle contains only
-    // named exports related code
-    const contents = await removeDefaultExport(filepath);
-
-    const buildOptions = {
-      ...standardBuildOptions,
-      format: 'cjs',
-      minify: false,
-      write: false,
-      legalComments: 'none',
-    } satisfies BuildOptions;
-
-    buildOptions.stdin = {
-      sourcefile: filepath,
-      contents,
-      loader: filepath.endsWith('.ts')
-        ? 'ts'
-        : filepath.endsWith('.tsx')
-          ? 'tsx'
-          : filepath.endsWith('.js')
-            ? 'js'
-            : filepath.endsWith('.jsx')
-              ? 'jsx'
-              : 'default',
-      resolveDir: dirname(filepath),
-    };
-
-    buildOptions.banner = {
-      js: `const __filename = ${JSON.stringify(filepath)};
-const __dirname = ${JSON.stringify(dirname(filepath))};
-`,
-    };
-
-    const output = await build(buildOptions);
-    const bundle = new TextDecoder().decode(output.outputFiles[0]?.contents);
-
-    return vercelEndpointExports.parse(_eval(bundle, filepath, {}, true));
-  } catch (e) {
-    console.warn(`Warning: failed to read exports of '${filepath}'`, e);
-  }
-}
-
 export async function buildEndpoints(resolvedConfig: ResolvedConfig): Promise<{
   rewrites: Rewrite[];
   isr: Record<string, VercelOutputIsr>;
@@ -362,43 +284,6 @@ export async function buildEndpoints(resolvedConfig: ResolvedConfig): Promise<{
   const entries = getEntries(resolvedConfig);
 
   for (const entry of entries) {
-    if (typeof entry.source === 'string') {
-      const exports = await extractExports(entry.source);
-
-      if (exports) {
-        if (entry.headers || exports.headers) {
-          entry.headers = {
-            ...exports.headers,
-            ...entry.headers,
-          };
-        }
-
-        if (entry.edge !== undefined && exports.edge !== undefined) {
-          throw new Error(
-            `edge configuration should be defined either in the endpoint itself or through Vite config, not both ('${entry.source}')`,
-          );
-        }
-
-        if (exports.edge !== undefined) {
-          entry.edge = exports.edge;
-        }
-
-        if (entry.isr !== undefined && exports.isr !== undefined) {
-          throw new Error(
-            `isr configuration should be defined either in the endpoint itself or through Vite config, not both ('${entry.source}')`,
-          );
-        }
-
-        if (exports.isr) {
-          entry.isr = exports.isr;
-        }
-
-        if (typeof exports.streaming === 'boolean') {
-          entry.streaming = exports.streaming;
-        }
-      }
-    }
-
     await buildFn(resolvedConfig, entry);
   }
 
